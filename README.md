@@ -3,7 +3,7 @@
 An AI-powered web application that predicts student academic performance and provides personalized, actionable feedback to support learning improvement.
 
 🔗 **Live Demo:**
-👉 [https://your-app-name.streamlit.app](https://your-app-name.streamlit.app)
+👉 [https://ai-student-performance-predictor-khppwonx62kgo6duvb89an.streamlit.app/](https://ai-student-performance-predictor-khppwonx62kgo6duvb89an.streamlit.app/)
 *(Note: The app may take a few seconds to load if inactive.)*
 
 ---
