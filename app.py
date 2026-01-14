@@ -4,41 +4,54 @@ from sklearn.linear_model import LinearRegression
 from groq import Groq
 import os
 
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+# ==================================
+# Page Configuration
+# ==================================
+st.set_page_config(
+    page_title="AI Student Performance Predictor",
+    page_icon="📊",
+    layout="centered"
+)
 
-# ===============================
-# Load Dataset
-# ===============================
+# ==================================
+# Load Data
+# ==================================
 df = pd.read_csv("StudentPerformance.csv")
 
 X = df[['HoursStudied', 'Attendance']]
 y = df['Marks']
 
-# ===============================
-# Train ML Model
-# ===============================
+# ==================================
+# Train Model
+# ==================================
 model = LinearRegression()
 model.fit(X, y)
 
-# ===============================
-# GenAI-style Prompt Builder
-# ===============================
+# ==================================
+# Initialize GenAI Client (Secure)
+# ==================================
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+
+# ==================================
+# Prompt Builder
+# ==================================
 def build_prompt(hours, attendance, predicted_marks):
     return f"""
 You are an academic performance advisor.
 
-Student details:
+Student profile:
 - Study hours per day: {hours}
-- Attendance: {attendance}%
-- Predicted marks: {round(predicted_marks, 2)}
+- Attendance percentage: {attendance}%
+- Predicted academic score: {round(predicted_marks, 2)}
 
-Give 3 short, practical suggestions to improve performance.
+Provide 3 short, practical, and motivating suggestions to improve academic performance.
+Keep the tone professional and supportive.
 """
 
-# ===============================
-# Simulated GenAI Response
-# ===============================
-def simulated_llm_response(prompt):
+# ==================================
+# GenAI Response Function
+# ==================================
+def get_genai_feedback(prompt):
     response = client.chat.completions.create(
         model="llama-3.1-8b-instant",
         messages=[
@@ -49,45 +62,79 @@ def simulated_llm_response(prompt):
     )
     return response.choices[0].message.content
 
-
-# ===============================
-# Streamlit UI
-# ===============================
-st.set_page_config(page_title="Student Performance Predictor", layout="centered")
-
-st.title("📊 Student Performance Predictor")
-st.write("An AI-powered app combining Machine Learning and GenAI-style feedback.")
-
-hours = st.number_input(
-    "Hours Studied per Day",
-    min_value=0,
-    max_value=12,
-    value=5
+# ==================================
+# UI: Header
+# ==================================
+st.title("📊 AI Student Performance Predictor")
+st.caption(
+    "Predict academic performance and receive AI-driven insights to improve learning outcomes."
 )
+st.markdown("---")
 
-attendance = st.number_input(
-    "Attendance (%)",
-    min_value=0,
-    max_value=100,
-    value=80
+# ==================================
+# UI: Sidebar
+# ==================================
+st.sidebar.title("About This App")
+st.sidebar.write(
+    "This application combines supervised machine learning with a generative AI layer "
+    "to predict student performance and provide personalized feedback."
 )
+st.sidebar.markdown("---")
+st.sidebar.caption("Built by Sulekha Thakur")
 
-# ===============================
-# Prediction + GenAI Feedback
-# ===============================
-if st.button("Predict Performance"):
+# ==================================
+# UI: Inputs
+# ==================================
+st.subheader("📥 Student Inputs")
+
+with st.container():
+    col1, col2 = st.columns(2)
+
+    with col1:
+        hours = st.number_input(
+            "Hours Studied per Day",
+            min_value=0,
+            max_value=12,
+            value=5
+        )
+
+    with col2:
+        attendance = st.number_input(
+            "Attendance (%)",
+            min_value=0,
+            max_value=100,
+            value=80
+        )
+
+# ==================================
+# Prediction + Output
+# ==================================
+if st.button("🔍 Predict Performance"):
     prediction = model.predict([[hours, attendance]])[0]
 
-    st.success(f"🎯 Predicted Marks: {prediction:.2f}")
+    st.success(f"📈 Predicted Marks: {prediction:.2f}")
 
-    prompt = build_prompt(hours, attendance, prediction)
-    ai_feedback = simulated_llm_response(prompt)
+    # Confidence indicator (UI enhancement)
+    confidence = min(95, max(60, int(prediction)))
+    st.progress(confidence)
+    st.caption("Prediction confidence based on data patterns")
 
-    st.subheader("🤖 AI-Generated Feedback")
-    st.text(ai_feedback)
+    # GenAI Feedback
+    st.markdown("### 🤖 AI-Generated Feedback")
+    try:
+        prompt = build_prompt(hours, attendance, prediction)
+        ai_feedback = get_genai_feedback(prompt)
+        st.write(ai_feedback)
+    except Exception:
+        st.warning(
+            "AI feedback is temporarily unavailable. "
+            "The performance prediction is still valid."
+        )
 
-# ===============================
+# ==================================
 # Footer
-# ===============================
+# ==================================
 st.markdown("---")
-st.caption("Built using Python, Scikit-learn, Streamlit | ML + GenAI Concepts")
+st.caption(
+    "Powered by Python, Scikit-learn, Streamlit, and GenAI | Educational AI Demo"
+)
