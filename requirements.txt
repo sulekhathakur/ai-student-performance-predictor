@@ -1,4 +1,7 @@
 streamlit
+matplotlib.pyplot
 pandas
 scikit-learn
 groq
+os
+datetime
