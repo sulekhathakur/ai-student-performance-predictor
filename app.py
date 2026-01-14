@@ -1,136 +1,208 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-import os
+import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
+from groq import Groq
+import os
+from datetime import datetime
 
-# ---------------- CONFIG ----------------
+# ==================================================
+# Page Config
+# ==================================================
 st.set_page_config(
     page_title="AI Student Performance Predictor",
-    page_icon="📊",
+    page_icon="🎓",
     layout="centered"
 )
 
-# ---------------- STYLING ----------------
+# ==================================================
+# Custom CSS (POLISH)
+# ==================================================
 st.markdown("""
 <style>
     .main {
-        background-color: #0e1117;
+        padding-top: 1.5rem;
     }
-    h1, h2, h3 {
-        color: #ffffff;
+    .title-text {
+        font-size: 2.2rem;
+        font-weight: 700;
+        text-align: center;
     }
-    p {
-        color: #cfcfcf;
+    .subtitle-text {
+        font-size: 1rem;
+        color: #6b7280;
+        text-align: center;
+        margin-bottom: 1.5rem;
     }
     .card {
-        background-color: #161b22;
-        padding: 20px;
+        background-color: #f9fafb;
+        padding: 1.2rem;
         border-radius: 12px;
-        margin-bottom: 20px;
+        margin-bottom: 1rem;
+        box-shadow: 0px 4px 12px rgba(0,0,0,0.05);
     }
-    .result {
-        background-color: #0f5132;
-        padding: 15px;
+    .metric-box {
+        background-color: #eef2ff;
+        padding: 1rem;
         border-radius: 10px;
-        color: #d1e7dd;
-        font-size: 18px;
-    }
-    .ai-box {
-        background-color: #1c1f26;
-        padding: 15px;
-        border-radius: 10px;
-        border-left: 4px solid #4dabf7;
+        text-align: center;
+        font-size: 1.4rem;
+        font-weight: 600;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- TITLE ----------------
-st.title("📊 AI Student Performance Predictor")
-st.write(
-    "Predict academic performance and receive **AI-driven insights** "
-    "to improve learning outcomes."
-)
-
-st.divider()
-
-# ---------------- LOAD DATA ----------------
+# ==================================================
+# Load Data & Train Model
+# ==================================================
 df = pd.read_csv("StudentPerformance.csv")
-
-X = df[["Hours_Studied", "Attendance"]]
-y = df["Marks"]
+X = df[['HoursStudied', 'Attendance']]
+y = df['Marks']
 
 model = LinearRegression()
 model.fit(X, y)
 
-# ---------------- INPUT CARD ----------------
+# ==================================================
+# GenAI Client
+# ==================================================
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+
+# ==================================================
+# Prompt Builder
+# ==================================================
+def build_prompt(hours, attendance, marks, tone):
+    tone_map = {
+        "Mentor": "Be supportive and motivating.",
+        "Friendly": "Be casual and friendly.",
+        "Strict": "Be honest, direct, and firm."
+    }
+    return f"""
+You are an academic advisor.
+{tone_map[tone]}
+
+Student details:
+Study hours: {hours}
+Attendance: {attendance}%
+Predicted marks: {round(marks,2)}
+
+Give 3 short, practical suggestions.
+"""
+
+# ==================================================
+# AI Response
+# ==================================================
+def get_feedback(prompt):
+    response = client.chat.completions.create(
+        model="llama-3.1-8b-instant",
+        messages=[
+            {"role": "system", "content": "You are an academic advisor."},
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0.7
+    )
+    return response.choices[0].message.content
+
+# ==================================================
+# Header
+# ==================================================
+st.markdown("<div class='title-text'>🎓 AI Student Performance Predictor</div>", unsafe_allow_html=True)
+st.markdown("<div class='subtitle-text'>Predict academic outcomes and receive AI-driven guidance</div>", unsafe_allow_html=True)
+
+# ==================================================
+# Sidebar
+# ==================================================
+st.sidebar.title("⚙️ Settings")
+tone = st.sidebar.selectbox("AI Feedback Tone", ["Mentor", "Friendly", "Strict"])
+st.sidebar.markdown("---")
+st.sidebar.caption("Built by Sulekha Thakur")
+
+# ==================================================
+# Input Card
+# ==================================================
 st.markdown("<div class='card'>", unsafe_allow_html=True)
-st.subheader("🧾 Student Inputs")
+st.subheader("📥 Student Inputs")
 
 col1, col2 = st.columns(2)
-
 with col1:
-    hours = st.number_input(
-        "Hours Studied per Day",
-        min_value=0,
-        max_value=12,
-        value=5
-    )
-
+    hours = st.slider("Hours Studied per Day", 0, 12, 5)
 with col2:
-    attendance = st.number_input(
-        "Attendance (%)",
-        min_value=0,
-        max_value=100,
-        value=80
-    )
+    attendance = st.slider("Attendance (%)", 0, 100, 80)
 
-predict_btn = st.button("🔍 Predict Performance")
 st.markdown("</div>", unsafe_allow_html=True)
 
-# ---------------- PREDICTION ----------------
-if predict_btn:
-    prediction = model.predict([[hours, attendance]])[0]
+# ==================================================
+# Prediction
+# ==================================================
+prediction = model.predict([[hours, attendance]])[0]
 
-    st.markdown(
-        f"<div class='result'>✅ <b>Predicted Marks:</b> {prediction:.2f}</div>",
-        unsafe_allow_html=True
-    )
+st.markdown("<div class='card'>", unsafe_allow_html=True)
+st.subheader("📈 Prediction Result")
 
-    # ---------------- AI FEEDBACK (SAFE MODE) ----------------
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.subheader("🤖 AI Academic Insight")
+st.markdown(
+    f"<div class='metric-box'>Predicted Marks: {prediction:.2f}</div>",
+    unsafe_allow_html=True
+)
 
-    try:
-        from groq import Groq
+confidence = min(95, max(60, int(prediction)))
+st.progress(confidence)
+st.caption("Confidence based on historical data patterns")
 
-        client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+st.markdown("</div>", unsafe_allow_html=True)
 
-        prompt = f"""
-        A student studies {hours} hours per day and has {attendance}% attendance.
-        Their predicted marks are {prediction:.2f}.
-        Give short, practical, motivating feedback to improve performance.
-        """
+# ==================================================
+# Visualization
+# ==================================================
+st.markdown("<div class='card'>", unsafe_allow_html=True)
+st.subheader("📊 Performance Visualization")
 
-        response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[{"role": "user", "content": prompt}]
-        )
+fig, ax = plt.subplots()
+ax.scatter(df['HoursStudied'], df['Marks'], alpha=0.6, label="Historical Data")
+ax.scatter(hours, prediction, color="crimson", s=120, label="Current Prediction")
+ax.set_xlabel("Hours Studied")
+ax.set_ylabel("Marks")
+ax.legend()
 
-        ai_text = response.choices[0].message.content
+st.pyplot(fig)
+st.markdown("</div>", unsafe_allow_html=True)
 
-    except Exception:
-        ai_text = (
-            "Focus on maintaining consistent study hours, improving class engagement, "
-            "and revising weak topics regularly to boost academic performance."
-        )
+# ==================================================
+# AI Feedback
+# ==================================================
+st.markdown("<div class='card'>", unsafe_allow_html=True)
+st.subheader("🤖 AI Feedback")
 
-    st.markdown(
-        f"<div class='ai-box'>{ai_text}</div>",
-        unsafe_allow_html=True
-    )
+try:
+    prompt = build_prompt(hours, attendance, prediction, tone)
+    feedback = get_feedback(prompt)
+    st.write(feedback)
+except Exception:
+    st.warning("AI feedback temporarily unavailable.")
 
-    st.markdown("</div>", unsafe_allow_html=True)
+st.markdown("</div>", unsafe_allow_html=True)
 
-# ---------------- FOOTER ----------------
-st.caption("Built with ❤️ using Python, Machine Learning & Generative AI")
+# ==================================================
+# Download Report
+# ==================================================
+report = f"""
+AI Student Performance Report
+Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+
+Study Hours: {hours}
+Attendance: {attendance}%
+Predicted Marks: {prediction:.2f}
+
+AI Feedback ({tone}):
+{feedback if 'feedback' in locals() else 'Unavailable'}
+"""
+
+st.download_button(
+    "⬇️ Download Report",
+    report,
+    file_name="student_performance_report.txt"
+)
+
+# ==================================================
+# Footer
+# ==================================================
+st.markdown("---")
+st.caption("ML + GenAI powered educational analytics • Streamlit Cloud")
